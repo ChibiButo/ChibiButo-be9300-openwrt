@@ -1,0 +1,35 @@
+#!/bin/sh
+# BE9300 test build: bring up the 2.4 GHz radio as a WPA2 AP on first boot,
+# so the router is reachable even if the LAN ports do not come up.
+# The key is generated on the device (never stored in the public repo),
+# printed to the serial console and saved in /etc/be9300-wifi-key.
+
+KEY=$(tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 16)
+echo "$KEY" > /etc/be9300-wifi-key
+chmod 600 /etc/be9300-wifi-key
+
+uci -q batch <<UCI
+set wireless.radio0=wifi-device
+set wireless.radio0.type='mac80211'
+set wireless.radio0.path='platform/soc@0/c000000.wifi'
+set wireless.radio0.band='2g'
+set wireless.radio0.channel='6'
+set wireless.radio0.htmode='HE20'
+set wireless.radio0.country='US'
+set wireless.radio0.disabled='0'
+set wireless.default_radio0=wifi-iface
+set wireless.default_radio0.device='radio0'
+set wireless.default_radio0.network='lan'
+set wireless.default_radio0.mode='ap'
+set wireless.default_radio0.ssid='OpenWrt-BE9300-test'
+set wireless.default_radio0.encryption='psk2'
+set wireless.default_radio0.key='$KEY'
+commit wireless
+UCI
+
+for c in /dev/ttyMSM0 /dev/console; do
+	[ -w "$c" ] && printf '\n\n*** BE9300 test Wi-Fi: SSID OpenWrt-BE9300-test  key %s ***\n\n' "$KEY" > "$c"
+done
+logger -t be9300 "test Wi-Fi key stored in /etc/be9300-wifi-key"
+
+exit 0

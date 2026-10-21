@@ -1,0 +1,12 @@
+[
+{
+"board": [
+  {"names": [
+     "bus=ahb,qmi-chip-id=0,qmi-board-id=32,variant=TP-Link-Archer-BE550-v1",
+     "bus=ahb,qmi-chip-id=0,qmi-board-id=32",
+     "bus=ahb,qmi-chip-id=0,qmi-board-id=255,variant=TP-Link-Archer-BE550-v1",
+     "bus=ahb,qmi-chip-id=0,qmi-board-id=255"
+   ], "data": "bdwlan.b20"}
+]
+}
+]
