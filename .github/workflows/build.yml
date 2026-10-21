@@ -1,4 +1,4 @@
-name: Build BE9300 OpenWrt (2.4 GHz test, initramfs)
+name: Build BE9300 / BE550 v1 OpenWrt (PR #25470 + TP-Link-signed 5/6 GHz firmware)
 
 on:
   push:
@@ -7,8 +7,17 @@ on:
 
 env:
   OPENWRT_REPO: https://github.com/openwrt/openwrt.git
-  # Pinned base the patches were written against (openwrt main, 2026-10-21)
-  OPENWRT_SHA: a31dd90f6974a935b16aea8c7c31eeec1aac18c1
+  # openwrt PR #25470 "qualcommbe: add support for TP-Link Archer BE550 v1"
+  # (trickpattyFH20), head as of 2026-10-04 -- built exactly as its author tested it
+  OPENWRT_REF: refs/pull/25470/head
+  OPENWRT_SHA: 5ca368199150a1b18d206ba0a5f7ebf3d9351fb4
+  # TP-Link-signed QCN92xx/QCN6274 firmware container (AMSS, dual-MAC AMSS, M3)
+  # published for the Archer BE800 port (openwrt PR #20373); PR #25470's author
+  # reports it runs on the BE550. Fetched at build time, not stored in this repo.
+  FW_REPO: https://github.com/sidhantgoel/firmware_qca-wireless.git
+  FW_SHA: c7b7a979b30e9fbaf2c41b4ad96a4c4d67846927
+  FW_FILE: firmware-tplink_archer-be800.qcn9274
+  FW_MD5: 7575482364b37aa544af98a0f3293a46
 
 jobs:
   build:
@@ -30,20 +39,25 @@ jobs:
 
       - uses: actions/checkout@v4
 
-      - name: Fetch OpenWrt at pinned commit
+      - name: Fetch OpenWrt PR #25470 at pinned commit
         run: |
           git init openwrt
           cd openwrt
           git remote add origin "$OPENWRT_REPO"
-          git fetch --depth 1 origin "$OPENWRT_SHA"
-          git checkout -q FETCH_HEAD
+          git fetch --depth 1 origin "$OPENWRT_SHA" || git fetch --depth 50 origin "$OPENWRT_REF"
+          git checkout -q "$OPENWRT_SHA"
+          git log -1 --format='%H %s'
 
-      - name: Apply BE9300 patches and overlay
+      - name: Fetch TP-Link-signed ath12k firmware
         run: |
-          cd openwrt
-          git -c user.name=ci -c user.email=ci@localhost am ../patches/*.patch
-          cp -a ../files ./files
-          ls -laR files
+          git init fw && cd fw
+          git fetch --depth 1 "$FW_REPO" "$FW_SHA"
+          git checkout -q FETCH_HEAD
+          echo "$FW_MD5  $FW_FILE" | md5sum -c -
+          mkdir -p ../openwrt/files/lib/firmware/ath12k/QCN9274/hw2.0
+          # firmware-2.bin is loaded in preference to amss.bin/m3.bin and
+          # overrides the linux-firmware copy the chip rejects
+          cp "$FW_FILE" ../openwrt/files/lib/firmware/ath12k/QCN9274/hw2.0/firmware-2.bin
 
       - name: Feeds
         run: |
@@ -58,7 +72,8 @@ jobs:
           make defconfig
           grep -q '^CONFIG_TARGET_qualcommbe_ipq95xx_DEVICE_tplink_archer-be550-v1=y' .config
           grep -q '^CONFIG_PACKAGE_kmod-ath11k-ahb=y' .config
-          grep -q '^CONFIG_TARGET_ROOTFS_INITRAMFS=y' .config
+          grep -q '^CONFIG_PACKAGE_kmod-ath12k=y' .config
+          grep -q '^CONFIG_PACKAGE_ipq-wifi-tplink_archer-be550-v1=y' .config
           ./scripts/diffconfig.sh > ../final.diffconfig
           cat ../final.diffconfig
 
@@ -72,6 +87,14 @@ jobs:
           cd openwrt
           make -j$(($(nproc)+1)) || make -j1 V=s
 
+      - name: Verify image contents
+        run: |
+          cd openwrt
+          R=$(ls -d build_dir/target-*/root-qualcommbe* | head -1)
+          ls -la $R/lib/firmware/ath12k/QCN9274/hw2.0/ $R/lib/firmware/ath11k/IPQ9574/hw1.0/ || true
+          md5sum $R/lib/firmware/ath12k/QCN9274/hw2.0/firmware-2.bin
+          echo "$FW_MD5  $(ls $R/lib/firmware/ath12k/QCN9274/hw2.0/firmware-2.bin)" | md5sum -c -
+
       - name: Collect images
         if: always()
         run: |
@@ -83,6 +106,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: be9300-openwrt-initramfs
+          name: be9300-openwrt
           path: out/
           if-no-files-found: warn
