@@ -21,6 +21,14 @@ env:
   FW_SHA: c7b7a979b30e9fbaf2c41b4ad96a4c4d67846927
   FW_FILE: firmware-tplink_archer-be800.qcn9274
   FW_MD5: 7575482364b37aa544af98a0f3293a46
+  # IPQ9574 integrated-radio (2.4 GHz) Q6/M3 firmware: PR #25470 loads
+  # ath11k/IPQ9574/hw1.0/{q6,m3}_fw.mdt but ships no package for it.
+  # Same source and version openwrt main's ath11k-firmware-ipq9574 uses.
+  WIFI_FW_REPO: https://github.com/quic/upstream-wifi-fw.git
+  WIFI_FW_SHA: 795809c7041582bd51bdfaa1f548b916ae8d4382
+  WIFI_FW_DIR: ath11k-firmware/IPQ9574/hw1.0/2.9.0.1/WLAN.HK.2.9.0.1-01890-QCAHKSWPL_SILICONZ-1
+  Q6_SHA256: 75b0e3ae0a84274af0ff4eae5f4f6701e86f075ce8d14cf815a3ef726e8ecc8c
+  M3_SHA256: 93a643ee86abbede19c13444a2bb5acaf6a9f7175b17185e73eb96cab754bdd5
 
 jobs:
   build:
@@ -56,6 +64,22 @@ jobs:
           # BE9300-branded units report product_name "Archer BE9300"; the stock
           # updater rejects images whose SupportList lacks the unit's identity.
           python3 be9300-supportlist.py openwrt/target/linux/qualcommbe/image/ipq95xx.mk
+
+      - name: Apply BE9300 Wi-Fi fixes (split-PHY DT + ath12k 108/109)
+        run: python3 be9300-fixes.py openwrt
+
+      - name: Fetch IPQ9574 2.4 GHz Q6/M3 firmware
+        run: |
+          git init wififw && cd wififw
+          git fetch --depth 1 --filter=blob:none "$WIFI_FW_REPO" "$WIFI_FW_SHA"
+          git sparse-checkout set --no-cone "$WIFI_FW_DIR/"
+          git checkout -q FETCH_HEAD
+          echo "$Q6_SHA256  $WIFI_FW_DIR/q6_fw.mdt" | sha256sum -c -
+          echo "$M3_SHA256  $WIFI_FW_DIR/m3_fw.mdt" | sha256sum -c -
+          D=../openwrt/files/lib/firmware/ath11k/IPQ9574/hw1.0
+          mkdir -p $D
+          cp "$WIFI_FW_DIR"/q6_fw.* "$WIFI_FW_DIR"/m3_fw.* $D/
+          ls -la $D
 
       - name: Fetch TP-Link-signed ath12k firmware
         run: |
@@ -103,6 +127,8 @@ jobs:
           ls -la $R/lib/firmware/ath12k/QCN9274/hw2.0/ $R/lib/firmware/ath11k/IPQ9574/hw1.0/ || true
           md5sum $R/lib/firmware/ath12k/QCN9274/hw2.0/firmware-2.bin
           echo "$FW_MD5  $(ls $R/lib/firmware/ath12k/QCN9274/hw2.0/firmware-2.bin)" | md5sum -c -
+          echo "$Q6_SHA256  $(ls $R/lib/firmware/ath11k/IPQ9574/hw1.0/q6_fw.mdt)" | sha256sum -c -
+          test -f $R/lib/firmware/ath11k/IPQ9574/hw1.0/q6_fw.b13
 
       - name: Collect images
         if: always()
