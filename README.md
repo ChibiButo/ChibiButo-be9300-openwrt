@@ -10,6 +10,19 @@ Status: the PR's author reports everything working on stock **1.2.4**: all five
 sysupgrade. This repo's particular combination has **not been tested on hardware
 yet**. The PR is an unmerged draft.
 
+## Download
+
+**[Release be550-v1-pr25470-r1](https://github.com/ChibiButo/ChibiButo-be9300-openwrt/releases/tag/be550-v1-pr25470-r1)**
+(build run 39694362615). For the web-UI install, use
+`openwrt-qualcommbe-ipq95xx-tplink_archer-be550-v1-squashfs-web-ui-factory.bin`,
+which is 16,650,981 bytes with SHA-256
+`e41c91653b1bd846f68ccb2fa06f6fa39cff0f935d298bffdfc8a35b12bedf61`.
+
+Pre-flash checks on that file: the tplink2023 header size and MD5 are valid, the
+support list has all 9 regions including US `55530000`, and the UBI payload has
+128 KiB PEBs, 2 KiB pages, and `kernel` (vol 0) + `rootfs` (vol 1) volumes in
+127 PEBs (about 16.6 MB, which fits the 48 MB slot).
+
 ## What gets built (Actions artifact `be9300-openwrt`)
 
 | File | Use |

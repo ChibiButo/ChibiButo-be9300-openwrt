@@ -3,6 +3,9 @@ name: Build BE9300 / BE550 v1 OpenWrt (PR #25470 + TP-Link-signed 5/6 GHz firmwa
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - 'README.md'
+      - '.github/workflows/release.yml'
   workflow_dispatch:
 
 env:
