@@ -51,6 +51,12 @@ jobs:
           git checkout -q "$OPENWRT_SHA"
           git log -1 --format='%H %s'
 
+      - name: Add retail "Archer BE9300 v1.0" (US) to the web-UI support list
+        run: |
+          # BE9300-branded units report product_name "Archer BE9300"; the stock
+          # updater rejects images whose SupportList lacks the unit's identity.
+          python3 be9300-supportlist.py openwrt/target/linux/qualcommbe/image/ipq95xx.mk
+
       - name: Fetch TP-Link-signed ath12k firmware
         run: |
           git init fw && cd fw

@@ -44,6 +44,14 @@ The container holds AMSS, dual-MAC AMSS (the mode one radio needs to serve both 
 Board data for both radios comes from upstream `firmware_qca-wireless`
 (`ipq-wifi-tplink_archer-be550-v1`).
 
+## BE9300-branded units (retail "Archer BE9300 v1.0")
+
+Units sold as **Archer BE9300** report `product_name:Archer BE9300`, so the stock
+updater rejects the PR's factory image ("upload error"). The PR only lists
+`Archer BE550`. This repo's build adds
+`{product_name:Archer BE9300,product_ver:1.0.0,special_id:55530000}` (US) to the
+support list (`be9300-supportlist.py`). The payload is unchanged.
+
 ## Install option A: web UI (no serial), as tested by the PR author
 
 1. Make sure you can get back to stock: download the official 1.2.4 firmware from
