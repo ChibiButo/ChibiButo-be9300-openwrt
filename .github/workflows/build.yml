@@ -124,6 +124,8 @@ jobs:
           grep -q '^CONFIG_PACKAGE_ipq-wifi-tplink_archer-be550-v1=y' .config
           grep -q '^CONFIG_PACKAGE_luci-theme-argon=y' .config
           grep -q '^CONFIG_PACKAGE_luci-app-argon-config=y' .config
+          grep -q '^CONFIG_PACKAGE_tailscale=y' .config
+          grep -q '^CONFIG_PACKAGE_kmod-tun=y' .config
           ./scripts/diffconfig.sh > ../final.diffconfig
           cat ../final.diffconfig
 
