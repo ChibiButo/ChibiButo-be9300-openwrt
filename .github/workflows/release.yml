@@ -1,0 +1,62 @@
+name: Publish build as release
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Build run ID to publish"
+        required: true
+      tag:
+        description: "Release tag"
+        required: true
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: be9300-openwrt
+          path: out
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Inspect images
+        run: |
+          cd out
+          {
+            echo "Built by run ${{ inputs.run_id }} from openwrt PR #25470 @ 5ca36819"
+            echo "+ TP-Link-signed ath12k firmware-2.bin (md5 7575482364b37aa544af98a0f3293a46)"
+            echo
+            echo "Images (bytes, sha256):"
+            for f in *.bin *.itb; do
+              [ -f "$f" ] || continue
+              printf '%s  %s  %s\n' "$(stat -c %s "$f")" "$(sha256sum "$f" | cut -d' ' -f1)" "$f"
+            done
+            echo
+            F=$(ls *web-ui-factory.bin 2>/dev/null | head -1)
+            if [ -n "$F" ]; then
+              echo "factory: $F"
+              echo "factory header size field: $(od -An -N4 -tu4 --endian=big "$F" | tr -d ' ') (file $(stat -c %s "$F"))"
+              grep -a -o 'SupportList:[^{]*{product_name:Archer BE550,product_ver:1.0.0,special_id:55530000}' "$F" >/dev/null \
+                && echo "factory support-list: contains US (55530000)" || echo "factory support-list: US entry NOT FOUND"
+              tail -c +$(( $(od -An -N4 -tu4 --endian=big "$F" | tr -d ' ') + 1 )) "$F" | wc -c | sed 's/^/trailing bytes after header size: /'
+              grep -a -c 'UBI#' "$F" | sed 's/^/UBI erase-counter headers: /'
+            else
+              echo "factory: MISSING"
+            fi
+          } | tee ../notes.txt
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd out
+          gh release create "${{ inputs.tag }}" -R "${{ github.repository }}" \
+            --title "BE9300 / BE550 v1 OpenWrt (${{ inputs.tag }})" \
+            --notes-file ../notes.txt \
+            $(ls *.bin *.itb final.diffconfig 2>/dev/null)
