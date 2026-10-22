@@ -24,6 +24,10 @@ env:
   # IPQ9574 integrated-radio (2.4 GHz) Q6/M3 firmware: PR #25470 loads
   # ath11k/IPQ9574/hw1.0/{q6,m3}_fw.mdt but ships no package for it.
   # Same source and version openwrt main's ath11k-firmware-ipq9574 uses.
+  # Argon LuCI theme (jerrykuku), built from source: theme v2.4.8 and the
+  # config app release that v2.4.8 ships with.
+  ARGON_THEME_SHA: 9f5d1e79e67623f4006a86471116b6745ea845f7
+  ARGON_CONFIG_SHA: 9bafffa885135fc78fb4c0106196f98d91d4dae7
   WIFI_FW_REPO: https://github.com/quic/upstream-wifi-fw.git
   WIFI_FW_SHA: 795809c7041582bd51bdfaa1f548b916ae8d4382
   WIFI_FW_DIR: ath11k-firmware/IPQ9574/hw1.0/2.9.0.1/WLAN.HK.2.9.0.1-01890-QCAHKSWPL_SILICONZ-1
@@ -92,6 +96,17 @@ jobs:
           # overrides the linux-firmware copy the chip rejects
           cp "$FW_FILE" ../openwrt/files/lib/firmware/ath12k/QCN9274/hw2.0/firmware-2.bin
 
+      - name: Add Argon LuCI theme
+        run: |
+          for p in "luci-theme-argon $ARGON_THEME_SHA" "luci-app-argon-config $ARGON_CONFIG_SHA"; do
+            set -- $p
+            git init -q "openwrt/package/argon/$1"
+            git -C "openwrt/package/argon/$1" fetch -q --depth 1 "https://github.com/jerrykuku/$1.git" "$2"
+            git -C "openwrt/package/argon/$1" checkout -q FETCH_HEAD
+            rm -rf "openwrt/package/argon/$1/.git"
+            grep -E '^(PKG_VERSION|PKG_RELEASE)' "openwrt/package/argon/$1/Makefile" || true
+          done
+
       - name: Feeds
         run: |
           cd openwrt
@@ -107,6 +122,8 @@ jobs:
           grep -q '^CONFIG_PACKAGE_kmod-ath11k-ahb=y' .config
           grep -q '^CONFIG_PACKAGE_kmod-ath12k=y' .config
           grep -q '^CONFIG_PACKAGE_ipq-wifi-tplink_archer-be550-v1=y' .config
+          grep -q '^CONFIG_PACKAGE_luci-theme-argon=y' .config
+          grep -q '^CONFIG_PACKAGE_luci-app-argon-config=y' .config
           ./scripts/diffconfig.sh > ../final.diffconfig
           cat ../final.diffconfig
 
